@@ -1,0 +1,51 @@
+---
+title: "Command Line Basics"
+output: html_document
+date: "2026-07-08"
+---
+## Introduction
+
+This file serves as a set of notes for unix syntax as part of the workshops for Moduel 3 in MB5370
+
+## Structure of commands
+
+Example:    ls -l /usr
+
+1) ls: The command name
+
+2) -l: The flags or modifiers -> changes default behavior
+
+3) /usr: The arguments -> input files, etc
+
+
+## Basic Unix Commands
+
+ls -> displays files and directories in location
+
+- show full list: ls -l 
+- show full list reversed: ls -rl
+
+pwd -> shows where you are in the unix tree
+
+cd -> create directory
+
+- create directory named command_line: mkdir command_line ls 
+- change directory to command_line: cd command_line
+
+## Create mock fasta:
+
+cd ~/command_line
+echo $'>fasta_header\nMMGTSRCVILLFALLLWAANAAPPEIHTTRPNVPEEIKRPNSTEIETPAVKQLETPSIFL\nLTTLEVAEADVDSTLETMKDRNKKNSAKLSKIGNNMKSLLSVFSVFGGFLSLLSVVTTTS' > test.fasta
+
+Read file: cat test.fasta
+
+Read first few lines of file: head -2 test.fasta
+
+# GREP: Globally search a Regular Expression and Print
+
+Find fasta header: grep '^>' test.fasta
+
+Find following amino acid sequence and line number: grep -n KDRNKKNSAK test.fasta
+
+Look over different flags for grep: man grep
+

@@ -1,0 +1,82 @@
+---
+title: "Genome Assembly"
+author: "Ryan Waln"
+date: "2026-07-08"
+output: html_document
+---
+## Introduction
+
+This file serves as a set of notes on the commands used for workshop 2 for Module 3 in MB5370
+
+```{bash}
+#can run terminal/unix lines here but can't render document if functional since it will take forever for certain commands
+```
+
+## Redbean Assembly (fast long read genome assembler software)
+
+### Create Directory: 
+mkdir redbean
+
+### Change to directory: 
+cd redbean
+
+### Collect a small subset of data for the initial assembly: 
+cat /pvol/data/amtp4/*_[012].fastq > amtp4.fastq
+
+### Run the assembly (takes a bit even for data that is small and not suficient for real genome reading): 
+wtdbg2 -x ont -g 5m -t 4 -i amtp4.fastq -fo amtp4
+wtpoa-cns -t 4 -i amtp4.ctg.lay.gz -fo amtp4.ctg.fa
+
+### Show assembly stats:
+assembly-stats amtp4.ctg.fa
+
+### Run assembly with better coverage depth (takes uo to 13 min): 
+cat /pvol/data/amtp4/*.fastq > amtp4_20x.fastq
+wtdbg2 -x ont -g 5m -t 4 -i amtp4_20x.fastq -fo amtp4_20x
+wtpoa-cns -t 4 -i amtp4_20x.ctg.lay.gz -fo amtp4_20x.ctg.fa
+
+### Show assembly stats:
+assembly-stats amtp4_20x.ctg.fa
+
+## Flye Assembly
+
+### Move up one level and create diretory called flye then make symbolic links to data:
+ln -s ../redbean/amtp4.fastq .
+ln -s ../redbean/amtp4_20x.fastq .
+
+### Will run flye assembly on slurm to not crash server (slurm lets you run multiple jobs on large datasets)
+### Create a shell script in flye directory with provided code and run script 
+### DO NOT RUN SCRIPT MORE THAN ONCE:
+
+sbatch run_flye_small.sh
+
+### Check how long job has been running in queue and follow output as created: 
+### Click stop with second command to stop tracing outputs and enter in other commands (slurm-322 is assigned name of job)
+squeue
+tail -f slurm-322.out
+
+### Once job is done a folder called amtp4 should appear in flye directory, check stats and then do a second run on larger dataset 
+### Create another shell script and run provided code, RUN SCRIPT ONCE
+assembly-stats amtp4/assembly.fasta
+tail -f slurm-331.out
+sbatch run_flye_large.sh
+
+## Inspect assembly graphs with Bandage
+
+### Flye outputs GFA files that can be read by Bandage (install and run program outside R)
+### Export assembly-graph.gfa from the small run (amtp4) CLICK THE BOX NOT THE FILE TO EXPORT
+### Open bandage and use the File->Load Graph menu to load the file assembly-graph.gfa. Then click Draw Graph.
+### Then do the same for the large run
+
+
+### Lines not connected with black dots are separate organisms 
+### Small read shows tangle of lines with center at 38 depth (repeating section in genetic code)
+### Large read shows more complete ___
+
+## Check Assembly Quality with QUAST
+
+### Create directory called quast and then 2 directories for assemblies run by different software
+mkdir flye_asm redbean_asm
+
+### Look at contig sizes in flye directory 
+cat ../flye/amtp4_20x/assembly.fasta | bioawk -c fastx '{print $name, length($seq)}' | sort -n -k2
