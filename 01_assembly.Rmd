@@ -6,7 +6,9 @@ output: html_document
 ---
 ## Introduction
 
-This file serves as a set of notes on the commands used for workshop 2 for Module 3 in MB5370
+This file serves as a set of notes on the commands used for workshop 2 for Module 3 in MB5370 in order to assemble a genome 
+
+Data used is from a previous MinION run on a culture dominated by a bacterium in the genus Vibrio. The dominant organism has two large chromosomes with sizes around 3.4Mb and 1.8Mb respectively. We also expect some smaller plasmids. At very high coverage it was also revealed that this data contained another bacterium (a Gammaproteobacterium) which was around 100 times less abundant than the Vibrio.
 
 ```{bash}
 #can run terminal/unix lines here but can't render document if functional since it will take forever for certain commands
@@ -80,3 +82,50 @@ mkdir flye_asm redbean_asm
 
 ### Look at contig sizes in flye directory 
 cat ../flye/amtp4_20x/assembly.fasta | bioawk -c fastx '{print $name, length($seq)}' | sort -n -k2
+
+### The reference assembly only contains contigs for the two major Vibrio chromosomes which should be the largest contigs
+### Extract these contigs to make assembly comparison easier to interpret
+samtools faidx ../flye/amtp4_20x/assembly.fasta contig_10 contig_59 > flye_asm/vibrio.fasta
+
+### Repeat for Redbean assembly 
+cat ../redbean/amtp4_20x.ctg.fa | bioawk -c fastx '{print $name, length($seq)}' | sort -n -k2
+samtools faidx ../redbean/amtp4_20x.ctg.fa ctg1 ctg2 > redbean_asm/vibrio.fasta
+
+### Create a symbolic link to original reads and then the referance assembly 
+ln ../flye/amtp4_20x.fastq .
+
+### Run Quast 
+quast -o quast_vibrio redbean_asm/vibrio.fasta flye_asm/vibrio.fasta -L -t 4 --circos --glimmer -r vibrio/vibrio.fna --features  vibrio/vibrio.gff --nanopore amtp4_20x.fastq
+
+### Quast outputs will be in a folder called quast_vibrio. Download and unzip to look at report.html and circos/circos.png to see how well each program assembled the genome
+
+## Mystery Repeat Region
+
+### Bandage has shown that the flye assembly contains a repeat region that could not be completely resolved
+### Create a directory called repeat in the quast directory to explore this
+### Load up the large assembly into bandage and draw, select the repeat region, Output-> copy selected node..., paste to a text file in R
+### Add a fasta header to the text file called >repeat_1 and save into repeat folder as repeat.fasta
+
+### Run prokka on this sequence to see if it contains any transcribed sequences
+### Then look at the tsv file produced to see what type of genomic features dominate the sequence
+prokka --outdir prokka --prefix repeat repeat.fasta
+cat prokka/repeat.tsv
+
+## Genomic arrangement of repeats
+
+### we now know the genes that are present in the repeat but we don’t know how the repeats are arranged in the genome: in tandem or dispersed throughout genome
+### To investigate this we can map the repeat sequence back to the genome itself. The tool of choice for mapping long reads and/or long DNA sequences is minimap2
+
+### Link in the data
+ln -s ../quast/vibrio/vibrio.fna .
+
+### Run minimap2 
+minimap2 -x map-ont vibrio.fna repeat.fasta > repeat_vs_genome.paf
+
+### Examine the first few lines of the paf file produced.
+head  repeat_vs_genome.paf
+
+### Extract important columns (start and end points) into a bed formated file
+cat repeat_vs_genome.paf | grep '^repe' | awk -F '\t' '{print $6,$8,$9}' > repeat_locations.bed
+
+### Repeating contigs are clustered but still a little spread out in that cluster

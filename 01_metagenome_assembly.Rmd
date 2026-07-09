@@ -1,0 +1,21 @@
+---
+title: "Metagenome Assembly"
+author: "Ryan Waln"
+date: "2026-07-09"
+output: html_document
+---
+
+## Introduction
+
+This file serves as a set of notes on the commands used for workshop 3 for Module 3 in MB5370 in order to assemble a metagenome of five bacterial species
+
+Challenges include:
+- Variable coverage: Some species are very abundant whereas others are quite rare. Assembling the rarer taxa is more difficult.
+- Similar sequences: This community contains two Vibrio species. These are similar enough that they are difficult to separate in an assembly
+
+The following steps are taken to assemble the metagenome
+- Examine Reads
+- Assembly
+- Basic assembly QC
+- Binning
+- Bin assessment
