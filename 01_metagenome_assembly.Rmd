@@ -13,9 +13,79 @@ Challenges include:
 - Variable coverage: Some species are very abundant whereas others are quite rare. Assembling the rarer taxa is more difficult.
 - Similar sequences: This community contains two Vibrio species. These are similar enough that they are difficult to separate in an assembly
 
-The following steps are taken to assemble the metagenome
+The following steps are taken to assemble the metagenome:
 - Examine Reads
 - Assembly
 - Basic assembly QC
 - Binning
 - Bin assessment
+
+## Examine Reads
+
+### Create a subdirectory called raw_data in Marine_Genomics and symbolic link to the raw reads file, then check that files are correct with ls command
+ln -s /pvol/data/metagenome_assembly/reads_R10_0.5.fastq.gz raw_reads.fastq.gz
+
+### Examine the read length distribution in our input data (will claim broken pipe, proceed anyways)
+zcat raw_reads.fastq.gz | head -n 40000 | bioawk -c fastx '{print $name,length($seq)}' > read_lengths.txt
+
+```{r, explanation of code above}
+## Unzips the raw data and sends the data to standard output
+# zcat raw_data/raw_reads.fastq.gz \
+
+## This is a pipe. It sends output from the previous command as input to the next command
+#  | \
+## Here we select only the top 40k lines in the file. This equates to 10k reads. It should be plenty to get some stats
+#  head -n 40000 | \
+
+## This is a small bioawk program. It prints the name of each sequence followed by its length
+# bioawk -c fastx '{print $name,length($seq)}' \
+
+## Send outputs to a file called read_lengths.txt
+# > read_lengths.txt
+```
+
+### Visualize Read Lengths
+```{r}
+library(tidyverse)
+library(here)
+
+rl_data <- read_tsv(here::here("raw_data","read_lengths.txt"), col_names = c("id","length"), show_col_types = FALSE)
+
+ggplot(rl_data, aes(x=length/1000)) + 
+  geom_histogram(binwidth = 2) +
+  xlab("Read Length Kb") + ylab("Number of Reads")
+```
+### Calculate N50 Statistic
+### Step 1: Rank all reads from longest to shortest
+### Step 2: Create a new column with the cumulative sum of read lengths (starting from longest read).
+### Step 3: Find the read at which the cumulative sum surpasses 50% of the total read volume (ie total sum of all read lengths)
+```{r}
+total_len <- sum(rl_data$length)
+
+rl_data %>% 
+  arrange(desc(length)) %>% 
+  mutate(cumsum = cumsum(length)) %>% 
+  filter(cumsum>total_len/2) %>% 
+  head(n=1)
+# N50 of the individual reads is about 22Kb. We expect that the N50 of the assembly should be considerably greater than this.
+```
+
+## Assembly 
+
+### Use flye to assemble reads so create a directory, create a sheel script with provided code and save to raw_data/flye as run_flye.sh
+### Run in slurm and ensure output is being generated
+### Once finished, outputs from flye will be available in the directory mock (use bandage to visualize)
+sbatch run_flye.sh
+tail -f slurm-394.out
+### Large Depth correlates with repeats or more of that species being present
+
+### When flye is finished running need to compare the assembled contigs with reference genomes from the 5 species in our mock community. 
+### Will acomplish by tabulating chromosome lengths and their corresponding GC content.
+### Create a plain text file in raw_data and post in provided code
+
+### All the reference genomes for our mock community can be found at the path
+ls /pvol/data/mg/refs/*.fna
+### Test awk program by using it to print the GC content and contig lengths for all chromosomes in these files. 
+### Use cat to concatenate all the files together and then a pipe to send their contents to our bioawk program
+cat /pvol/data/mg/refs/*.fna | bioawk -c fastx -f gc.awk
+
