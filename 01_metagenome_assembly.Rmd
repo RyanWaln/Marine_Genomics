@@ -5,7 +5,7 @@ date: "2026-07-09"
 output: html_document
 ---
 
-## Introduction
+## Introduction (everything will be in raw_data)
 
 This file serves as a set of notes on the commands used for workshop 3 for Module 3 in MB5370 in order to assemble a metagenome of five bacterial species
 
@@ -20,7 +20,7 @@ The following steps are taken to assemble the metagenome:
 - Binning
 - Bin assessment
 
-## Examine Reads
+## Step 1: Examine Reads
 
 ### Create a subdirectory called raw_data in Marine_Genomics and symbolic link to the raw reads file, then check that files are correct with ls command
 ln -s /pvol/data/metagenome_assembly/reads_R10_0.5.fastq.gz raw_reads.fastq.gz
@@ -70,7 +70,7 @@ rl_data %>%
 # N50 of the individual reads is about 22Kb. We expect that the N50 of the assembly should be considerably greater than this.
 ```
 
-## Assembly 
+## Step 2: Assembly 
 
 ### Use flye to assemble reads so create a directory, create a sheel script with provided code and save to raw_data/flye as run_flye.sh
 ### Run in slurm and ensure output is being generated
@@ -81,11 +81,27 @@ tail -f slurm-394.out
 
 ### When flye is finished running need to compare the assembled contigs with reference genomes from the 5 species in our mock community. 
 ### Will acomplish by tabulating chromosome lengths and their corresponding GC content.
-### Create a plain text file in raw_data and post in provided code
+### Create a plain text file in raw_data/flye and post in provided code
 
 ### All the reference genomes for our mock community can be found at the path
 ls /pvol/data/mg/refs/*.fna
-### Test awk program by using it to print the GC content and contig lengths for all chromosomes in these files. 
+
+### Test awk program by using it to print the GC content and contig lengths for all chromosomes in the files above. 
 ### Use cat to concatenate all the files together and then a pipe to send their contents to our bioawk program
 cat /pvol/data/mg/refs/*.fna | bioawk -c fastx -f gc.awk
+
+## Step 3: Basic Assembly QC
+
+### Create a new directory called assembly_check in raw_data
+### Then use your gc.awk script to print GC and lengths for the assembly
+cat ../flye/mock/assembly.fasta | bioawk -c fastx -f ../flye/gc.awk
+### Run again to send outputs to file below
+cat ../flye/mock/assembly.fasta | bioawk -c fastx -f ../flye/gc.awk > assembly.gc.tsv
+
+### We have GC content in assembly.gc.tsv and coverage depth in the assembly_info.txt file produced by flye. Let’s read those and join them together using R.
+```{r}
+gc <- read_tsv("assembly_check/assembly.gc.tsv",col_names = c("#seq_name","length","GC"))
+info <- read_tsv("flye/mock/assembly_info.txt") 
+
+```
 
