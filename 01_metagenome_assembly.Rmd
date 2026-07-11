@@ -45,6 +45,7 @@ zcat raw_reads.fastq.gz | head -n 40000 | bioawk -c fastx '{print $name,length($
 ```
 
 ### Visualize Read Lengths
+### Figure 1: Histogram of read lengths in the mock nanopore sequencing dataset
 ```{r}
 library(tidyverse)
 library(here)
@@ -96,12 +97,61 @@ cat /pvol/data/mg/refs/*.fna | bioawk -c fastx -f gc.awk
 ### Then use your gc.awk script to print GC and lengths for the assembly
 cat ../flye/mock/assembly.fasta | bioawk -c fastx -f ../flye/gc.awk
 ### Run again to send outputs to file below
-cat ../flye/mock/assembly.fasta | bioawk -c fastx -f ../flye/gc.awk > assembly.gc.tsv
+cat flye/mock/assembly.fasta | bioawk -c fastx -f flye/gc.awk > raw_data/assembly_check/assembly.gc.tsv
 
-### We have GC content in assembly.gc.tsv and coverage depth in the assembly_info.txt file produced by flye. Let’s read those and join them together using R.
+### We have GC content in assembly.gc.tsv and coverage depth in the assembly_info.txt file produced by flye. Let’s read those and join them together by the seq_name column
 ```{r}
-gc <- read_tsv("assembly_check/assembly.gc.tsv",col_names = c("#seq_name","length","GC"))
-info <- read_tsv("flye/mock/assembly_info.txt") 
-
+gc <- read_tsv("raw_data/assembly_check/assembly.gc.tsv", col_names = c("#seq_name","length","GC"))
+info <- read_tsv("raw_data/flye/mock/assembly_info.txt")
+gc_info <- info %>% 
+  left_join(gc)
 ```
 
+### Create a histogram by GC content (shows several peaks, probably corresponding to major groupings of taxonomically distinct lineages)
+### Figure 2: Histogram of GC content values values for assembled contigs in flye assembly of mock community dataset.
+```{r}
+gc_info %>% 
+  ggplot(aes(x=GC)) + geom_histogram() + ylab("Number of contigs")
+```
+
+### Create a plot of GC vs coverage to identify clusters that have similar values for both these parameters. 
+### Make sure to filter out contigs with unrealistically high GC content and coverage depth (probably repeats)
+### Figure 3: Coverage and GC content of assembled contigs in the mock community assembly. Contig lengths are shown through point size.
+```{r}
+library(ggrepel)
+gc_info %>% 
+  filter(GC<0.8) %>% 
+  filter(cov.<25) %>% 
+ ggplot(aes(x=GC,y=cov.)) + geom_point(aes(size=length)) + geom_label_repel(aes(label=`#seq_name`))
+```
+## Step 4: Binning
+### Create directory called meta bat in top level
+### Prepare an input file summarising read depth information for all contigs
+cat ../flye/mock/assembly_info.txt  | grep -v '#' | awk '{OFS="\t";print $1,$3}' > depths.txt
+
+### Create a new version of the assembly file in which the contigs have the same order as those in the depths.txt file. We do this using a samtools faidx which allows us to extract entries from a fasta file in whatever order we specify.
+cat depths.txt | awk '{print $1}' | xargs samtools faidx ../flye/mock/assembly.fasta > assembly_ordered.fasta
+
+### Then run metabat (metabat should then have a folder called bins with several files)
+metabat2 -i assembly_ordered.fasta -a depths.txt --cvExt -o bins/metabat --seed 5
+
+### Use grep to inspect which contigs were grouped into which bin to see which conitgs belong to each 5 species
+grep '>' bins/*
+
+## Step 5: Check bin quality with checkM
+
+### Goal is to create bins where: 
+### The sequences within the bin contain the complete sequence for this organism
+### The sequences within the bin come from the same organism and are not contaminated with sequences from other taxa
+
+### Create directory called checkm in raw_data 
+### Then prepare inputs for checkm by copying the bins in metabat
+mkdir bins
+cp ../metabat/bins/metabat.*.fa bins/
+
+### Run checkm workflow in slurm: create shell file w/provided code and save in checkm folder
+### Submit job and monitor progress
+sbatch run_checkm.sh
+tail -f slurm-428.out
+
+### Once job is done running, results will be in checkm_results.txt
